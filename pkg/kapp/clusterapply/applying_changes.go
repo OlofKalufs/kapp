@@ -60,25 +60,28 @@ func (c *ApplyingChanges) Apply(allChanges []*ctldgraph.Change) ([]WaitingChange
 		// - "...: context canceled (reason: )"
 		applyThrottle := util.NewThrottle(c.opts.Concurrency)
 		applyCh := make(chan applyResult, len(nonAppliedChanges))
+		allChangesAreNoop := c.allChangesAreNoop(nonAppliedChanges)
 
 		for _, change := range nonAppliedChanges {
-			change := change // copy
+			if allChangesAreNoop || (change.Change.Op() != ctldgraph.ActualChangeOpNoop) {
+				change := change // copy
 
-			go func() {
-				applyThrottle.Take()
-				defer applyThrottle.Done()
+				go func() {
+					applyThrottle.Take()
+					defer applyThrottle.Done()
 
-				clusterChange := change.Change.(wrappedClusterChange).ClusterChange
-				retryable, descMsgs, err := clusterChange.Apply()
+					clusterChange := change.Change.(wrappedClusterChange).ClusterChange
+					retryable, descMsgs, err := clusterChange.Apply()
 
-				applyCh <- applyResult{
-					Change:        change,
-					ClusterChange: clusterChange,
-					DescMsgs:      descMsgs,
-					Retryable:     retryable,
-					Err:           err,
-				}
-			}()
+					applyCh <- applyResult{
+						Change:        change,
+						ClusterChange: clusterChange,
+						DescMsgs:      descMsgs,
+						Retryable:     retryable,
+						Err:           err,
+					}
+				}()
+			}
 		}
 
 		var appliedChanges []WaitingChange
@@ -136,6 +139,15 @@ func (c *ApplyingChanges) nonAppliedChanges(allChanges []*ctldgraph.Change) []*c
 		}
 	}
 	return result
+}
+
+func (c *ApplyingChanges) allChangesAreNoop(allChanges []*ctldgraph.Change) bool {
+	for _, change := range allChanges {
+		if change.Change.Op() != ctldgraph.ActualChangeOpNoop {
+			return false
+		}
+	}
+	return true
 }
 
 func (c *ApplyingChanges) isApplied(change *ctldgraph.Change) bool {
