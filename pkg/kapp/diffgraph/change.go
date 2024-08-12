@@ -231,8 +231,6 @@ func (cs Changes) MatchesRule(rule ChangeRule, _ *Change) ([]*Change, error) {
 			op := change.Change.Op()
 
 			switch op {
-			case ActualChangeOpNoop:
-				// Fall through since we want noop to be treated as upsert
 			case ActualChangeOpUpsert:
 				if rule.TargetAction == ChangeRuleTargetActionUpserting {
 					result = append(result, change)
@@ -241,6 +239,7 @@ func (cs Changes) MatchesRule(rule ChangeRule, _ *Change) ([]*Change, error) {
 				if rule.TargetAction == ChangeRuleTargetActionDeleting {
 					result = append(result, change)
 				}
+			case ActualChangeOpNoop:
 			default:
 				panic(fmt.Sprintf("Unknown change operation: %s", op))
 			}
