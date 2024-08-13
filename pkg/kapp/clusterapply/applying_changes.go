@@ -60,6 +60,8 @@ func (c *ApplyingChanges) Apply(allChanges []*ctldgraph.Change) ([]WaitingChange
 		// - "...: context canceled (reason: )"
 		applyThrottle := util.NewThrottle(c.opts.Concurrency)
 		applyCh := make(chan applyResult, len(nonAppliedChanges))
+
+		// Perform noop changes after all other changes are applied
 		allChangesAreNoop := c.allChangesAreNoop(nonAppliedChanges)
 
 		for _, change := range nonAppliedChanges {
